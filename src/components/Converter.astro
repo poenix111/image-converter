@@ -1,0 +1,1130 @@
+---
+// Client-side batch converter component.
+// Automated flow: uploads start conversion immediately, progress is shown globally,
+// and a ZIP is automatically downloaded at the end.
+---
+
+<div class="converter-app">
+  <!-- Top App Bar -->
+  <header class="app-bar">
+    <div class="app-bar-content">
+      <span class="material-symbols-outlined logo-icon">image_converter</span>
+    </div>
+    <div class="app-bar-actions">
+      <button
+        id="theme-toggle"
+        class="icon-button"
+        aria-label="Toggle dark theme"
+        title="Toggle theme"
+      >
+        <span class="material-symbols-outlined">dark_mode</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="app-content">
+    <div class="converter-container">
+      <!-- State 1: Upload and Configuration -->
+      <div id="panel-upload" class="card main-card">
+        <h2 class="card-title">Convert Images</h2>
+
+        <!-- Settings Bar -->
+        <div class="settings-grid">
+          <div class="setting-group">
+            <label class="setting-label">Format</label>
+            <div
+              class="format-chips"
+              role="radiogroup"
+              aria-label="Target Format"
+            >
+              <button
+                class="format-chip active"
+                data-format="image/jpeg"
+                role="radio"
+                aria-checked="true"
+              >
+                <span class="material-symbols-outlined chip-icon">check</span>
+                <span>JPEG</span>
+              </button>
+              <button
+                class="format-chip"
+                data-format="image/webp"
+                role="radio"
+                aria-checked="false"
+              >
+                <span class="material-symbols-outlined chip-icon">check</span>
+                <span>WEBP</span>
+              </button>
+              <button
+                class="format-chip"
+                data-format="image/png"
+                role="radio"
+                aria-checked="false"
+              >
+                <span class="material-symbols-outlined chip-icon">check</span>
+                <span>PNG</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <div class="slider-header">
+              <label for="quality-slider" class="setting-label">Quality</label>
+              <span id="quality-val" class="slider-value">85%</span>
+            </div>
+            <input
+              type="range"
+              id="quality-slider"
+              min="10"
+              max="100"
+              value="85"
+              class="slider"
+              aria-valuemin="10"
+              aria-valuemax="100"
+              aria-valuenow="85"
+            />
+          </div>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div class="dropzone-area" id="dropzone">
+          <input
+            type="file"
+            id="file-input"
+            multiple
+            accept="image/*,.heic,.heif"
+            class="hidden-input"
+            aria-label="Choose image files to convert"
+          />
+          <div class="dropzone-content">
+            <div class="dropzone-icon-container">
+              <span class="material-symbols-outlined dropzone-icon"
+                >cloud_upload</span
+              >
+            </div>
+            <h3 class="dropzone-title">Drag & drop images here</h3>
+            <p class="dropzone-subtitle">or click to browse from device</p>
+            <span class="dropzone-supported"
+              >Supports HEIC, HEIF, JPEG, PNG, WEBP, GIF</span
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- State 2: Conversion Progress -->
+      <div id="panel-progress" class="card main-card hidden">
+        <div class="progress-content">
+          <div class="spinner-container">
+            <div class="m3-spinner"></div>
+          </div>
+          <h2 class="progress-title">Converting Images...</h2>
+          <p id="progress-status" class="progress-status-text">
+            Preparing files...
+          </p>
+
+          <div class="global-progress-container">
+            <div
+              id="global-progress-bar"
+              class="global-progress-bar"
+              style="width: 0%;"
+            >
+            </div>
+          </div>
+          <span id="global-progress-percent" class="progress-percent">0%</span>
+        </div>
+      </div>
+
+      <!-- State 3: Completion & Download -->
+      <div id="panel-complete" class="card main-card hidden">
+        <div class="complete-content">
+          <div class="success-icon-container">
+            <span class="material-symbols-outlined success-icon"
+              >check_circle</span
+            >
+          </div>
+          <h2 class="complete-title">Conversion Complete!</h2>
+          <p class="complete-status-text">
+            Your converted images ZIP archive was generated and downloaded.
+          </p>
+
+          <!-- Failure Log (shown only if errors occurred) -->
+          <div id="failed-log-container" class="failed-log-container hidden">
+            <h3 class="failed-log-title">Some files could not be converted:</h3>
+            <ul id="failed-log-list" class="failed-log-list"></ul>
+          </div>
+
+          <div class="complete-actions">
+            <button
+              id="btn-download-zip"
+              class="btn btn-filled download-btn"
+              disabled
+            >
+              <span class="material-symbols-outlined btn-icon">download</span>
+              <span>Download ZIP</span>
+            </button>
+            <button id="btn-restart" class="btn btn-tonal restart-btn">
+              <span class="material-symbols-outlined btn-icon">replay</span>
+              <span>Convert More</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  import JSZip from "jszip";
+  // Global variables
+  let queue = [];
+  let isConverting = false;
+  let activeWorkers = 0;
+  let theme = "dark"; // default to dark for premium look
+
+  // DOM Panels
+  const panelUpload = document.getElementById("panel-upload") as HTMLElement;
+  const panelProgress = document.getElementById(
+    "panel-progress",
+  ) as HTMLElement;
+  const panelComplete = document.getElementById(
+    "panel-complete",
+  ) as HTMLElement;
+
+  // DOM Elements
+  const themeToggle = document.getElementById("theme-toggle") as HTMLElement;
+  const dropzone = document.getElementById("dropzone") as HTMLElement;
+  const fileInput = document.getElementById("file-input") as HTMLInputElement;
+  const qualitySlider = document.getElementById(
+    "quality-slider",
+  ) as HTMLInputElement;
+  const qualityVal = document.getElementById("quality-val") as HTMLElement;
+  const formatChips = document.querySelectorAll(".format-chip");
+  const progressStatus = document.getElementById(
+    "progress-status",
+  ) as HTMLElement;
+  const globalProgressBar = document.getElementById(
+    "global-progress-bar",
+  ) as HTMLElement;
+  const globalProgressPercent = document.getElementById(
+    "global-progress-percent",
+  ) as HTMLElement;
+  const btnRestart = document.getElementById("btn-restart") as HTMLElement;
+  const btnDownloadZip = document.getElementById(
+    "btn-download-zip",
+  ) as HTMLButtonElement;
+  const failedLogContainer = document.getElementById(
+    "failed-log-container",
+  ) as HTMLElement;
+  const failedLogList = document.getElementById(
+    "failed-log-list",
+  ) as HTMLElement;
+  let generatedZipUrl: string | null = null;
+  let currentZipName = "converted_images.zip";
+
+  // Active configurations
+  let targetFormat = "image/jpeg";
+  let quality = 0.85;
+  let maxConcurrency = 2; // Default concurrency for optimal CPU usage
+
+  // Initialize Theme
+  if (
+    window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: light)").matches
+  ) {
+    theme = "light";
+  }
+
+  // Set theme class initially
+  if (theme === "dark") {
+    document.documentElement.classList.add("dark-theme");
+    themeToggle.querySelector(".material-symbols-outlined").textContent =
+      "light_mode";
+  } else {
+    document.documentElement.classList.remove("dark-theme");
+    themeToggle.querySelector(".material-symbols-outlined").textContent =
+      "dark_mode";
+  }
+
+  // Event Listeners for Theme
+  themeToggle.addEventListener("click", () => {
+    if (document.documentElement.classList.contains("dark-theme")) {
+      document.documentElement.classList.remove("dark-theme");
+      themeToggle.querySelector(".material-symbols-outlined").textContent =
+        "dark_mode";
+      localStorage.setItem("theme", "light");
+    } else {
+      document.documentElement.classList.add("dark-theme");
+      themeToggle.querySelector(".material-symbols-outlined").textContent =
+        "light_mode";
+      localStorage.setItem("theme", "dark");
+    }
+  });
+
+  // Target Format Chips
+  formatChips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      formatChips.forEach((c) => {
+        c.classList.remove("active");
+        c.setAttribute("aria-checked", "false");
+      });
+      chip.classList.add("active");
+      chip.setAttribute("aria-checked", "true");
+      targetFormat = (chip as HTMLElement).dataset.format || "image/jpeg";
+    });
+  });
+
+  // Slider controls
+  qualitySlider.addEventListener("input", (e) => {
+    const val = (e.target as HTMLInputElement).value;
+    qualityVal.textContent = `${val}%`;
+    quality = parseInt(val) / 100;
+  });
+
+  // File Upload Handlers
+  dropzone.addEventListener("click", () => fileInput.click());
+
+  dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+  });
+
+  ["dragleave", "dragend"].forEach((type) => {
+    dropzone.addEventListener(type, () => {
+      dropzone.classList.remove("dragover");
+    });
+  });
+
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+    if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files);
+    }
+  });
+
+  fileInput.addEventListener("change", (e) => {
+    const target = e.target as HTMLInputElement;
+    if (target.files && target.files.length > 0) {
+      processFiles(target.files);
+      target.value = ""; // Reset to allow re-uploading same files
+    }
+  });
+
+  btnRestart.addEventListener("click", () => {
+    // Revoke previous URLs
+    queue.forEach((item) => {
+      if (item.convertedUrl) URL.revokeObjectURL(item.convertedUrl);
+    });
+    queue = [];
+
+    if (generatedZipUrl) {
+      URL.revokeObjectURL(generatedZipUrl);
+      generatedZipUrl = null;
+    }
+
+    btnDownloadZip.disabled = true;
+
+    // Switch back to upload panel
+    panelComplete.classList.add("hidden");
+    panelUpload.classList.remove("hidden");
+  });
+
+  btnDownloadZip.addEventListener("click", () => {
+    if (generatedZipUrl) {
+      const a = document.createElement("a");
+      a.href = generatedZipUrl;
+      a.download = currentZipName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  });
+
+  // Core Processing Logic
+  function processFiles(filesList: FileList) {
+    // Switch to progress view immediately
+    panelUpload.classList.add("hidden");
+    panelProgress.classList.remove("hidden");
+
+    queue = Array.from(filesList).map((file) => {
+      const isHeic =
+        file.name.toLowerCase().endsWith(".heic") ||
+        file.name.toLowerCase().endsWith(".heif");
+      return {
+        id: crypto.randomUUID(),
+        file: file,
+        name: file.name,
+        originalSize: file.size,
+        status: "pending", // 'pending', 'converting', 'success', 'failed'
+        progress: 0,
+        convertedBlob: null,
+        convertedName: null,
+        convertedSize: null,
+        convertedUrl: null,
+        isHeic: isHeic,
+        error: null,
+      };
+    });
+
+    startConversion();
+  }
+
+  async function startConversion() {
+    isConverting = true;
+    activeWorkers = 0;
+    updateGlobalUI();
+    processQueueNext();
+  }
+
+  function processQueueNext() {
+    if (!isConverting) return;
+
+    const pendingItems = queue.filter((item) => item.status === "pending");
+
+    if (pendingItems.length === 0 && activeWorkers === 0) {
+      // Entire queue is complete
+      finalizeConversion();
+      return;
+    }
+
+    while (activeWorkers < maxConcurrency && pendingItems.length > 0) {
+      const nextItem = pendingItems.shift()!;
+      nextItem.status = "converting";
+      nextItem.progress = 5;
+      activeWorkers++;
+
+      runImageConversion(nextItem).then(() => {
+        activeWorkers--;
+        processQueueNext();
+      });
+
+      updateGlobalUI();
+    }
+  }
+
+  async function runImageConversion(item: any) {
+    const ext = getExtensionForMime(targetFormat);
+    const baseNameWithoutExt =
+      item.name.substring(0, item.name.lastIndexOf(".")) || item.name;
+    item.convertedName = `${baseNameWithoutExt}.${ext}`;
+
+    try {
+      let sourceBlob = item.file;
+
+      // Step 1: Decode HEIC/HEIF if applicable
+      if (item.isHeic) {
+        item.progress = 20;
+        updateGlobalUI();
+
+        try {
+          // Dynamic import of heic-to to support modern HEIC/HEIF files (e.g. iPhone 13+)
+          const heicToModule = await import("heic-to");
+          const heicTo =
+            heicToModule.heicTo || heicToModule.default || heicToModule;
+
+          const convResult = await heicTo({
+            blob: item.file,
+            type: (targetFormat === "image/webp"
+              ? "image/jpeg"
+              : targetFormat) as any, // WebP is handled in Step 2 via Canvas
+            quality: quality,
+          });
+
+          sourceBlob = convResult;
+          item.progress = 60;
+          updateGlobalUI();
+        } catch (err) {
+          console.error("HEIC decoding error:", err);
+          const errorMsg =
+            err && typeof err === "object" && "message" in err
+              ? String((err as any).message)
+              : "HEIC decoding failed";
+          throw new Error(errorMsg);
+        }
+      }
+
+      // Step 2: Convert Format / Adjust Quality using Canvas
+      const sourceMime = sourceBlob.type;
+
+      if (sourceMime === targetFormat && !item.isHeic && quality === 1.0) {
+        item.convertedBlob = sourceBlob;
+      } else {
+        item.progress = 75;
+        updateGlobalUI();
+
+        const canvasBlob = await convertViaCanvas(
+          sourceBlob,
+          targetFormat,
+          quality,
+        );
+        item.convertedBlob = canvasBlob;
+      }
+
+      item.convertedSize = item.convertedBlob.size;
+      item.convertedUrl = URL.createObjectURL(item.convertedBlob);
+      item.status = "success";
+      item.progress = 100;
+    } catch (e: any) {
+      console.error(e);
+      item.status = "failed";
+      item.error = e.message || "Conversion failed";
+      item.progress = 100; // mark progress as filled so bar reaches end
+    }
+
+    updateGlobalUI();
+  }
+
+  // Update global progress bar and status text
+  function updateGlobalUI() {
+    const total = queue.length;
+    const success = queue.filter((i) => i.status === "success").length;
+    const failed = queue.filter((i) => i.status === "failed").length;
+    const completed = success + failed;
+
+    // Calculate average progress of all items for a smooth bar transition
+    const totalProgress = queue.reduce((sum, item) => sum + item.progress, 0);
+    const globalProgress = total > 0 ? Math.round(totalProgress / total) : 0;
+
+    globalProgressBar.style.width = `${globalProgress}%`;
+    globalProgressPercent.textContent = `${globalProgress}%`;
+    progressStatus.textContent = `Converting ${completed} of ${total} images...`;
+  }
+
+  // Finalize conversion and generate Zip
+  async function finalizeConversion() {
+    isConverting = false;
+    progressStatus.textContent = "Packaging ZIP file...";
+
+    const successItems = queue.filter(
+      (item) => item.status === "success" && item.convertedBlob,
+    );
+    const failedItems = queue.filter((item) => item.status === "failed");
+    let packagingError = null;
+
+    if (successItems.length > 0) {
+      try {
+        const zip = new JSZip();
+
+        successItems.forEach((item) => {
+          // Sanitize filename to avoid path manipulations
+          const cleanName = item.convertedName.replace(/[/\\]/g, "_");
+          zip.file(cleanName, item.convertedBlob);
+        });
+
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        generatedZipUrl = URL.createObjectURL(zipBlob);
+
+        // Generate dynamic filename containing current local date & time
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+        const hours = String(now.getHours()).padStart(2, "0");
+        const minutes = String(now.getMinutes()).padStart(2, "0");
+        const seconds = String(now.getSeconds()).padStart(2, "0");
+        currentZipName = `converted_${year}-${month}-${day}_${hours}-${minutes}-${seconds}.zip`;
+
+        btnDownloadZip.disabled = false;
+
+        // Auto trigger download
+        const a = document.createElement("a");
+        a.href = generatedZipUrl;
+        a.download = currentZipName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (err: any) {
+        console.error("ZIP Generation error:", err);
+        packagingError =
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : String(err);
+      }
+    }
+
+    // Populate failure logs if any failed
+    failedLogList.replaceChildren();
+
+    if (failedItems.length > 0 || packagingError) {
+      if (packagingError) {
+        const li = document.createElement("li");
+        li.className = "failed-item";
+
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "failed-item-name";
+        nameSpan.textContent = "Packaging failed: ";
+
+        const reasonSpan = document.createElement("span");
+        reasonSpan.className = "failed-item-reason";
+        reasonSpan.textContent = packagingError;
+
+        li.appendChild(nameSpan);
+        li.appendChild(reasonSpan);
+        failedLogList.appendChild(li);
+      }
+
+      failedItems.forEach((item) => {
+        const li = document.createElement("li");
+        li.className = "failed-item";
+
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "failed-item-name";
+        nameSpan.textContent = item.name;
+
+        const reasonSpan = document.createElement("span");
+        reasonSpan.className = "failed-item-reason";
+        reasonSpan.textContent = ` (${item.error || "unknown error"})`;
+
+        li.appendChild(nameSpan);
+        li.appendChild(reasonSpan);
+        failedLogList.appendChild(li);
+      });
+      failedLogContainer.classList.remove("hidden");
+    } else {
+      failedLogContainer.classList.add("hidden");
+    }
+
+    // Switch to complete panel
+    panelProgress.classList.add("hidden");
+    panelComplete.classList.remove("hidden");
+  }
+
+  // Canvas API Conversion Helper
+  function convertViaCanvas(
+    blob: Blob,
+    mimeType: string,
+    qualityVal: number,
+  ): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Unable to create canvas context"));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0);
+
+        canvas.toBlob(
+          (outBlob) => {
+            if (outBlob) {
+              resolve(outBlob);
+            } else {
+              reject(new Error("Canvas export to blob failed"));
+            }
+          },
+          mimeType,
+          qualityVal,
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Failed to load image file into canvas"));
+      };
+
+      img.src = url;
+    });
+  }
+
+  // Utility to map mime back to simple extensions
+  function getExtensionForMime(mime: string) {
+    if (mime === "image/jpeg") return "jpg";
+    if (mime === "image/webp") return "webp";
+    if (mime === "image/png") return "png";
+    return "jpg";
+  }
+</script>
+
+<style>
+  /* Material Design 3 Minimal Layout */
+
+  .converter-app {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 100vh;
+    background-color: var(--md-sys-color-background);
+  }
+
+  /* App Bar */
+  .app-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    padding: 0 24px;
+    background-color: var(--md-sys-color-surface-container);
+    border-bottom: 1px solid var(--md-sys-color-surface-variant);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .app-bar-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    font-size: 28px;
+    color: var(--md-sys-color-primary);
+  }
+
+  .app-title {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0;
+    letter-spacing: -0.2px;
+  }
+
+  .icon-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: var(--md-shape-corner-full);
+    background: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+    cursor: pointer;
+    transition:
+      background-color 0.2s,
+      color 0.2s;
+  }
+
+  .icon-button:hover {
+    background-color: rgba(103, 80, 164, 0.08);
+    color: var(--md-sys-color-on-surface);
+  }
+
+  /* Main Area */
+  .app-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .converter-container {
+    width: 100%;
+    max-width: 600px;
+  }
+
+  /* Material Card */
+  .card {
+    background-color: var(--md-sys-color-surface-container-low);
+    border-radius: var(--md-shape-corner-extra-large);
+    padding: 32px;
+    border: 1px solid var(--md-sys-color-surface-variant);
+    box-shadow: var(--md-elevation-2);
+    transition:
+      box-shadow 0.2s,
+      background-color 0.3s;
+  }
+
+  .card-title {
+    font-size: 24px;
+    font-weight: 400;
+    margin-top: 0;
+    margin-bottom: 24px;
+    color: var(--md-sys-color-on-surface);
+    text-align: center;
+  }
+
+  /* Settings Controls */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  @media (max-width: 480px) {
+    .settings-grid {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+  }
+
+  .setting-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .setting-label {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .format-chips {
+    display: flex;
+    gap: 8px;
+  }
+
+  .format-chip {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    border-radius: var(--md-shape-corner-medium);
+    border: 1px solid var(--md-sys-color-outline);
+    background: transparent;
+    color: var(--md-sys-color-on-surface);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .format-chip .chip-icon {
+    font-size: 16px;
+    display: none;
+  }
+
+  .format-chip:hover {
+    background-color: rgba(103, 80, 164, 0.08);
+  }
+
+  .format-chip.active {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    border-color: var(--md-sys-color-primary);
+  }
+
+  .format-chip.active .chip-icon {
+    display: inline-block;
+  }
+
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .slider-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--md-sys-color-primary);
+  }
+
+  .slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--md-sys-color-surface-variant);
+    outline: none;
+    margin-top: 10px;
+  }
+
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--md-sys-color-primary);
+    cursor: pointer;
+    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  .slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 50%;
+    background: var(--md-sys-color-primary);
+    cursor: pointer;
+    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Dropzone */
+  .dropzone-area {
+    border: 2px dashed var(--md-sys-color-outline-variant);
+    border-radius: var(--md-shape-corner-large);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    background-color: transparent;
+    padding: 40px 20px;
+  }
+
+  .dropzone-area:hover,
+  .dropzone-area.dragover {
+    border-color: var(--md-sys-color-primary);
+    background-color: rgba(103, 80, 164, 0.04);
+  }
+
+  .hidden-input {
+    display: none;
+  }
+
+  .dropzone-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .dropzone-icon-container {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--md-shape-corner-full);
+    background-color: var(--md-sys-color-primary-container);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+
+  .dropzone-icon {
+    font-size: 32px;
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .dropzone-title {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0 0 6px 0;
+    color: var(--md-sys-color-on-surface);
+  }
+
+  .dropzone-subtitle {
+    font-size: 14px;
+    margin: 0 0 18px 0;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .dropzone-supported {
+    font-size: 12px;
+    background-color: var(--md-sys-color-surface-variant);
+    color: var(--md-sys-color-on-surface-variant);
+    padding: 6px 12px;
+    border-radius: var(--md-shape-corner-small);
+  }
+
+  /* State 2: Progress Panel */
+  .progress-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 0;
+  }
+
+  .spinner-container {
+    margin-bottom: 24px;
+  }
+
+  .m3-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--md-sys-color-surface-variant);
+    border-top: 4px solid var(--md-sys-color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .progress-title {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0 0 8px 0;
+    color: var(--md-sys-color-on-surface);
+  }
+
+  .progress-status-text {
+    font-size: 14px;
+    margin: 0 0 24px 0;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .global-progress-container {
+    height: 6px;
+    width: 100%;
+    background-color: var(--md-sys-color-surface-variant);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .global-progress-bar {
+    height: 100%;
+    background-color: var(--md-sys-color-primary);
+    transition: width 0.2s ease;
+  }
+
+  .progress-percent {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--md-sys-color-primary);
+  }
+
+  /* State 3: Complete Panel */
+  .complete-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 16px 0;
+  }
+
+  .success-icon-container {
+    width: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
+  .success-icon {
+    font-size: 72px;
+    color: var(--md-sys-color-success);
+  }
+
+  .complete-title {
+    font-size: 22px;
+    font-weight: 500;
+    margin: 0 0 8px 0;
+    color: var(--md-sys-color-on-surface);
+  }
+
+  .complete-status-text {
+    font-size: 15px;
+    margin: 0 0 24px 0;
+    color: var(--md-sys-color-on-surface-variant);
+    max-width: 400px;
+    line-height: 1.5;
+  }
+
+  /* Failed Log Container */
+  .failed-log-container {
+    width: 100%;
+    background-color: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+    padding: 16px;
+    border-radius: var(--md-shape-corner-medium);
+    margin-bottom: 24px;
+    text-align: left;
+  }
+
+  .failed-log-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 8px;
+  }
+
+  .failed-log-list {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 13px;
+  }
+
+  .failed-item {
+    margin-bottom: 4px;
+  }
+
+  .failed-item-name {
+    font-weight: 500;
+  }
+
+  .failed-item-reason {
+    opacity: 0.8;
+  }
+
+  /* Restart Button */
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: var(--md-shape-corner-full);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+  }
+
+  .btn-icon {
+    font-size: 18px;
+  }
+
+  .btn-filled {
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    box-shadow: var(--md-elevation-1);
+  }
+
+  .btn-filled:hover {
+    box-shadow: var(--md-elevation-2);
+    background-color: #553c90;
+  }
+
+  .complete-actions {
+    display: flex;
+    gap: 16px;
+    margin-top: 24px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .complete-actions button {
+    flex: 1;
+    max-width: 200px;
+  }
+
+  @media (max-width: 480px) {
+    .complete-actions {
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .complete-actions button {
+      max-width: 100%;
+      width: 100%;
+    }
+  }
+
+  .btn-tonal {
+    background-color: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+  }
+
+  .btn-tonal:hover {
+    background-color: var(--md-sys-color-surface-variant);
+  }
+
+  .hidden {
+    display: none !important;
+  }
+</style>
