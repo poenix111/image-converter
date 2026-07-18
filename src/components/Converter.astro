@@ -1,7 +1,7 @@
 ---
 // Client-side batch converter component.
-// Automated flow: uploads start conversion immediately, progress is shown globally,
-// and a ZIP is automatically downloaded at the end.
+// Features a sidebar configuration pane on the left, a detailed conversion progression list on the right,
+// and a manual launch button to trigger the conversion.
 ---
 
 <div class="converter-app">
@@ -9,6 +9,7 @@
   <header class="app-bar">
     <div class="app-bar-content">
       <span class="material-symbols-outlined logo-icon">image_converter</span>
+      <h1 class="app-title">Antigravity Converter</h1>
     </div>
     <div class="app-bar-actions">
       <button
@@ -23,20 +24,33 @@
   </header>
 
   <main class="app-content">
-    <div class="converter-container">
-      <!-- State 1: Upload and Configuration -->
-      <div id="panel-upload" class="card main-card">
-        <h2 class="card-title">Convert Images</h2>
+    <div class="dashboard-layout">
+      <!-- Left Column: Sidebar Controls -->
+      <aside class="sidebar">
+        <!-- Dropzone Card -->
+        <div class="card sidebar-card upload-card" id="dropzone">
+          <input
+            type="file"
+            id="file-input"
+            multiple
+            accept="image/*,.heic,.heif"
+            class="hidden-input"
+            aria-label="Choose image files to convert"
+          />
+          <div class="dropzone-content">
+            <span class="material-symbols-outlined upload-card-icon">cloud_upload</span>
+            <h3 class="upload-card-title">Load Images</h3>
+            <p class="upload-card-subtitle">Click or drag files here</p>
+          </div>
+        </div>
 
-        <!-- Settings Bar -->
-        <div class="settings-grid">
+        <!-- Settings Card -->
+        <div class="card sidebar-card settings-card">
+          <h2 class="sidebar-card-title">Configuration</h2>
+
           <div class="setting-group">
             <label class="setting-label">Format</label>
-            <div
-              class="format-chips"
-              role="radiogroup"
-              aria-label="Target Format"
-            >
+            <div class="format-chips" role="radiogroup" aria-label="Target Format">
               <button
                 class="format-chip active"
                 data-format="image/jpeg"
@@ -86,145 +100,106 @@
           </div>
         </div>
 
-        <!-- Drag & Drop Zone -->
-        <div class="dropzone-area" id="dropzone">
-          <input
-            type="file"
-            id="file-input"
-            multiple
-            accept="image/*,.heic,.heif"
-            class="hidden-input"
-            aria-label="Choose image files to convert"
-          />
-          <div class="dropzone-content">
-            <div class="dropzone-icon-container">
-              <span class="material-symbols-outlined dropzone-icon"
-                >cloud_upload</span
-              >
-            </div>
-            <h3 class="dropzone-title">Drag & drop images here</h3>
-            <p class="dropzone-subtitle">or click to browse from device</p>
-            <span class="dropzone-supported"
-              >Supports HEIC, HEIF, JPEG, PNG, WEBP, GIF</span
-            >
-          </div>
+        <!-- Actions Panel -->
+        <div class="card sidebar-card actions-card">
+          <button id="btn-convert" class="btn btn-filled action-btn" disabled>
+            <span class="material-symbols-outlined btn-icon">play_arrow</span>
+            <span>Convert Images</span>
+          </button>
+          
+          <button id="btn-download-zip" class="btn btn-tonal action-btn" disabled>
+            <span class="material-symbols-outlined btn-icon">download</span>
+            <span>Download ZIP</span>
+          </button>
+          
+          <button id="btn-clear" class="btn btn-text action-btn" disabled>
+            <span class="material-symbols-outlined btn-icon">delete_sweep</span>
+            <span>Clear Queue</span>
+          </button>
         </div>
-      </div>
+      </aside>
 
-      <!-- State 2: Conversion Progress -->
-      <div id="panel-progress" class="card main-card hidden">
-        <div class="progress-content">
-          <div class="spinner-container">
-            <div class="m3-spinner"></div>
+      <!-- Right Column: Progression List -->
+      <section class="main-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Progression Queue</h2>
+          <span id="summary-text" class="summary-text">No images loaded</span>
+        </div>
+
+        <!-- Empty State Placeholder -->
+        <div id="queue-empty" class="queue-empty">
+          <span class="material-symbols-outlined empty-icon">photo_library</span>
+          <p class="empty-title">Queue is empty</p>
+          <p class="empty-subtitle">Load files from the sidebar to view conversion progress</p>
+        </div>
+
+        <!-- Queue Table Container -->
+        <div id="queue-container" class="queue-container hidden">
+          <!-- Table Header -->
+          <div class="queue-table-header">
+            <span class="col-hdr-preview">Preview</span>
+            <span class="col-hdr-name">Name</span>
+            <span class="col-hdr-size">Size</span>
+            <span class="col-hdr-progress">Progress</span>
+            <span class="col-hdr-status">Status</span>
+            <span class="col-hdr-action"></span>
           </div>
-          <h2 class="progress-title">Converting Images...</h2>
-          <p id="progress-status" class="progress-status-text">
-            Preparing files...
-          </p>
+          
+          <!-- Scrollable Table Body -->
+          <div id="queue-list" class="queue-list"></div>
+        </div>
 
+        <!-- Bottom Global Progress Bar -->
+        <div id="queue-footer" class="queue-footer hidden">
+          <div class="footer-summary">
+            <span id="global-status-text">Ready to convert 0 files</span>
+            <span id="global-progress-percent">0%</span>
+          </div>
           <div class="global-progress-container">
-            <div
-              id="global-progress-bar"
-              class="global-progress-bar"
-              style="width: 0%;"
-            >
-            </div>
-          </div>
-          <span id="global-progress-percent" class="progress-percent">0%</span>
-        </div>
-      </div>
-
-      <!-- State 3: Completion & Download -->
-      <div id="panel-complete" class="card main-card hidden">
-        <div class="complete-content">
-          <div class="success-icon-container">
-            <span class="material-symbols-outlined success-icon"
-              >check_circle</span
-            >
-          </div>
-          <h2 class="complete-title">Conversion Complete!</h2>
-          <p class="complete-status-text">
-            Your converted images ZIP archive was generated and downloaded.
-          </p>
-
-          <!-- Failure Log (shown only if errors occurred) -->
-          <div id="failed-log-container" class="failed-log-container hidden">
-            <h3 class="failed-log-title">Some files could not be converted:</h3>
-            <ul id="failed-log-list" class="failed-log-list"></ul>
-          </div>
-
-          <div class="complete-actions">
-            <button
-              id="btn-download-zip"
-              class="btn btn-filled download-btn"
-              disabled
-            >
-              <span class="material-symbols-outlined btn-icon">download</span>
-              <span>Download ZIP</span>
-            </button>
-            <button id="btn-restart" class="btn btn-tonal restart-btn">
-              <span class="material-symbols-outlined btn-icon">replay</span>
-              <span>Convert More</span>
-            </button>
+            <div id="global-progress-bar" class="global-progress-bar" style="width: 0%;"></div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   </main>
 </div>
 
 <script>
   import JSZip from "jszip";
+
   // Global variables
-  let queue = [];
+  let queue: any[] = [];
   let isConverting = false;
   let activeWorkers = 0;
   let theme = "dark"; // default to dark for premium look
 
-  // DOM Panels
-  const panelUpload = document.getElementById("panel-upload") as HTMLElement;
-  const panelProgress = document.getElementById(
-    "panel-progress",
-  ) as HTMLElement;
-  const panelComplete = document.getElementById(
-    "panel-complete",
-  ) as HTMLElement;
-
-  // DOM Elements
+  // DOM Panels & Elements
   const themeToggle = document.getElementById("theme-toggle") as HTMLElement;
   const dropzone = document.getElementById("dropzone") as HTMLElement;
   const fileInput = document.getElementById("file-input") as HTMLInputElement;
-  const qualitySlider = document.getElementById(
-    "quality-slider",
-  ) as HTMLInputElement;
+  const qualitySlider = document.getElementById("quality-slider") as HTMLInputElement;
   const qualityVal = document.getElementById("quality-val") as HTMLElement;
   const formatChips = document.querySelectorAll(".format-chip");
-  const progressStatus = document.getElementById(
-    "progress-status",
-  ) as HTMLElement;
-  const globalProgressBar = document.getElementById(
-    "global-progress-bar",
-  ) as HTMLElement;
-  const globalProgressPercent = document.getElementById(
-    "global-progress-percent",
-  ) as HTMLElement;
-  const btnRestart = document.getElementById("btn-restart") as HTMLElement;
-  const btnDownloadZip = document.getElementById(
-    "btn-download-zip",
-  ) as HTMLButtonElement;
-  const failedLogContainer = document.getElementById(
-    "failed-log-container",
-  ) as HTMLElement;
-  const failedLogList = document.getElementById(
-    "failed-log-list",
-  ) as HTMLElement;
-  let generatedZipUrl: string | null = null;
-  let currentZipName = "converted_images.zip";
+  
+  const btnConvert = document.getElementById("btn-convert") as HTMLButtonElement;
+  const btnDownloadZip = document.getElementById("btn-download-zip") as HTMLButtonElement;
+  const btnClear = document.getElementById("btn-clear") as HTMLButtonElement;
+  
+  const summaryText = document.getElementById("summary-text") as HTMLElement;
+  const queueEmpty = document.getElementById("queue-empty") as HTMLElement;
+  const queueContainer = document.getElementById("queue-container") as HTMLElement;
+  const queueList = document.getElementById("queue-list") as HTMLElement;
+  const queueFooter = document.getElementById("queue-footer") as HTMLElement;
+  const globalProgressBar = document.getElementById("global-progress-bar") as HTMLElement;
+  const globalProgressPercent = document.getElementById("global-progress-percent") as HTMLElement;
+  const globalStatusText = document.getElementById("global-status-text") as HTMLElement;
 
   // Active configurations
   let targetFormat = "image/jpeg";
   let quality = 0.85;
   let maxConcurrency = 2; // Default concurrency for optimal CPU usage
+  let generatedZipUrl: string | null = null;
+  let currentZipName = "converted_images.zip";
 
   // Initialize Theme
   if (
@@ -237,11 +212,11 @@
   // Set theme class initially
   if (theme === "dark") {
     document.documentElement.classList.add("dark-theme");
-    themeToggle.querySelector(".material-symbols-outlined").textContent =
+    themeToggle.querySelector(".material-symbols-outlined")!.textContent =
       "light_mode";
   } else {
     document.documentElement.classList.remove("dark-theme");
-    themeToggle.querySelector(".material-symbols-outlined").textContent =
+    themeToggle.querySelector(".material-symbols-outlined")!.textContent =
       "dark_mode";
   }
 
@@ -249,12 +224,12 @@
   themeToggle.addEventListener("click", () => {
     if (document.documentElement.classList.contains("dark-theme")) {
       document.documentElement.classList.remove("dark-theme");
-      themeToggle.querySelector(".material-symbols-outlined").textContent =
+      themeToggle.querySelector(".material-symbols-outlined")!.textContent =
         "dark_mode";
       localStorage.setItem("theme", "light");
     } else {
       document.documentElement.classList.add("dark-theme");
-      themeToggle.querySelector(".material-symbols-outlined").textContent =
+      themeToggle.querySelector(".material-symbols-outlined")!.textContent =
         "light_mode";
       localStorage.setItem("theme", "dark");
     }
@@ -263,6 +238,7 @@
   // Target Format Chips
   formatChips.forEach((chip) => {
     chip.addEventListener("click", () => {
+      if (isConverting) return;
       formatChips.forEach((c) => {
         c.classList.remove("active");
         c.setAttribute("aria-checked", "false");
@@ -281,10 +257,14 @@
   });
 
   // File Upload Handlers
-  dropzone.addEventListener("click", () => fileInput.click());
+  dropzone.addEventListener("click", () => {
+    if (isConverting) return;
+    fileInput.click();
+  });
 
   dropzone.addEventListener("dragover", (e) => {
     e.preventDefault();
+    if (isConverting) return;
     dropzone.classList.add("dragover");
   });
 
@@ -297,6 +277,7 @@
   dropzone.addEventListener("drop", (e) => {
     e.preventDefault();
     dropzone.classList.remove("dragover");
+    if (isConverting) return;
     if (e.dataTransfer && e.dataTransfer.files.length > 0) {
       processFiles(e.dataTransfer.files);
     }
@@ -310,23 +291,13 @@
     }
   });
 
-  btnRestart.addEventListener("click", () => {
-    // Revoke previous URLs
-    queue.forEach((item) => {
-      if (item.convertedUrl) URL.revokeObjectURL(item.convertedUrl);
-    });
-    queue = [];
-
-    if (generatedZipUrl) {
-      URL.revokeObjectURL(generatedZipUrl);
-      generatedZipUrl = null;
+  // Actions click handlers
+  btnConvert.addEventListener("click", () => {
+    if (isConverting) {
+      stopConversion();
+    } else {
+      startConversion();
     }
-
-    btnDownloadZip.disabled = true;
-
-    // Switch back to upload panel
-    panelComplete.classList.add("hidden");
-    panelUpload.classList.remove("hidden");
   });
 
   btnDownloadZip.addEventListener("click", () => {
@@ -340,16 +311,32 @@
     }
   });
 
+  btnClear.addEventListener("click", () => {
+    if (isConverting) return;
+    // Revoke previous URLs
+    queue.forEach(item => {
+      if (item.convertedUrl) URL.revokeObjectURL(item.convertedUrl);
+      if (item.thumbnailUrl) URL.revokeObjectURL(item.thumbnailUrl);
+    });
+    queue = [];
+    
+    if (generatedZipUrl) {
+      URL.revokeObjectURL(generatedZipUrl);
+      generatedZipUrl = null;
+    }
+    
+    renderQueueList();
+  });
+
   // Core Processing Logic
   function processFiles(filesList: FileList) {
-    // Switch to progress view immediately
-    panelUpload.classList.add("hidden");
-    panelProgress.classList.remove("hidden");
-
-    queue = Array.from(filesList).map((file) => {
-      const isHeic =
-        file.name.toLowerCase().endsWith(".heic") ||
-        file.name.toLowerCase().endsWith(".heif");
+    // Add loaded files to queue
+    const newItems = Array.from(filesList).map(file => {
+      const isHeic = file.name.toLowerCase().endsWith(".heic") || file.name.toLowerCase().endsWith(".heif");
+      let url = null;
+      if (!isHeic) {
+        url = URL.createObjectURL(file);
+      }
       return {
         id: crypto.randomUUID(),
         file: file,
@@ -361,28 +348,341 @@
         convertedName: null,
         convertedSize: null,
         convertedUrl: null,
+        thumbnailUrl: url,
         isHeic: isHeic,
-        error: null,
+        error: null
       };
     });
 
-    startConversion();
+    queue.push(...newItems);
+    
+    // Revoke zip url if queue changes
+    if (generatedZipUrl) {
+      URL.revokeObjectURL(generatedZipUrl);
+      generatedZipUrl = null;
+    }
+
+    renderQueueList();
+  }
+
+  function removeQueueItem(id: string) {
+    if (isConverting) return;
+    const idx = queue.findIndex(item => item.id === id);
+    if (idx !== -1) {
+      const item = queue[idx];
+      if (item.convertedUrl) URL.revokeObjectURL(item.convertedUrl);
+      if (item.thumbnailUrl) URL.revokeObjectURL(item.thumbnailUrl);
+      queue.splice(idx, 1);
+      
+      if (generatedZipUrl) {
+        URL.revokeObjectURL(generatedZipUrl);
+        generatedZipUrl = null;
+      }
+      
+      renderQueueList();
+    }
+  }
+
+  function renderQueueList() {
+    queueList.replaceChildren();
+
+    if (queue.length === 0) {
+      queueEmpty.classList.remove("hidden");
+      queueContainer.classList.add("hidden");
+      queueFooter.classList.add("hidden");
+      
+      btnConvert.disabled = true;
+      btnDownloadZip.disabled = true;
+      btnClear.disabled = true;
+      summaryText.textContent = "No images loaded";
+      return;
+    }
+
+    queueEmpty.classList.add("hidden");
+    queueContainer.classList.remove("hidden");
+    queueFooter.classList.remove("hidden");
+
+    btnConvert.disabled = isConverting ? false : false; // handled in updateGlobalUI
+    btnClear.disabled = isConverting;
+    btnDownloadZip.disabled = !generatedZipUrl;
+
+    queue.forEach(item => {
+      // Row is structured using CSS grid matching the headers
+      const row = document.createElement("div");
+      row.className = `queue-table-row ${item.status}`;
+      row.id = `item-${item.id}`;
+
+      // Column 1: Preview
+      const previewCol = document.createElement("div");
+      previewCol.className = "col-preview";
+      
+      if (item.thumbnailUrl) {
+        const img = document.createElement("img");
+        img.src = item.thumbnailUrl;
+        img.alt = "Thumbnail";
+        previewCol.appendChild(img);
+      } else {
+        const span = document.createElement("span");
+        span.className = "material-symbols-outlined preview-icon";
+        span.textContent = item.isHeic ? "image_search" : "image";
+        previewCol.appendChild(span);
+      }
+
+      // Column 2: Name
+      const nameCol = document.createElement("div");
+      nameCol.className = "col-name";
+      nameCol.title = item.name;
+      nameCol.textContent = item.name;
+
+      // Column 3: Size
+      const sizeCol = document.createElement("div");
+      sizeCol.className = "col-size";
+      
+      const sizeSpan = document.createElement("span");
+      sizeSpan.textContent = formatBytes(item.originalSize);
+      sizeCol.appendChild(sizeSpan);
+
+      if (item.convertedSize) {
+        const arrow = document.createElement("span");
+        arrow.className = "details-arrow";
+        arrow.textContent = " → ";
+        sizeCol.appendChild(arrow);
+
+        const convSpan = document.createElement("span");
+        convSpan.className = "details-converted";
+        convSpan.textContent = `${formatBytes(item.convertedSize)}`;
+        sizeCol.appendChild(convSpan);
+      }
+
+      // Column 4: Progress Bar
+      const progressCol = document.createElement("div");
+      progressCol.className = "col-progress";
+      
+      const barContainer = document.createElement("div");
+      barContainer.className = "item-progress-bar-container";
+      const bar = document.createElement("div");
+      bar.className = "item-progress-bar";
+      bar.style.width = `${item.progress}%`;
+      barContainer.appendChild(bar);
+      progressCol.appendChild(barContainer);
+
+      // Column 5: Status Chip
+      const statusCol = document.createElement("div");
+      statusCol.className = "col-status";
+
+      const chip = document.createElement("span");
+      chip.className = `status-chip ${item.status}`;
+      chip.textContent = getStatusLabel(item);
+      statusCol.appendChild(chip);
+
+      // Column 6: Action Button
+      const actionCol = document.createElement("div");
+      actionCol.className = "col-action";
+      
+      if (!isConverting) {
+        const btnRemove = document.createElement("button");
+        btnRemove.className = "icon-button item-remove-btn";
+        btnRemove.title = "Remove file";
+        btnRemove.setAttribute("aria-label", `Remove ${item.name}`);
+        btnRemove.innerHTML = '<span class="material-symbols-outlined">close</span>';
+        btnRemove.addEventListener("click", (e) => {
+          e.stopPropagation();
+          removeQueueItem(item.id);
+        });
+        actionCol.appendChild(btnRemove);
+      }
+
+      row.appendChild(previewCol);
+      row.appendChild(nameCol);
+      row.appendChild(sizeCol);
+      row.appendChild(progressCol);
+      row.appendChild(statusCol);
+      row.appendChild(actionCol);
+      
+      queueList.appendChild(row);
+    });
+
+    updateGlobalUI();
+  }
+
+  function getStatusLabel(item: any): string {
+    if (item.status === "pending") return "Ready";
+    if (item.status === "converting") return `Running (${item.progress}%)`;
+    if (item.status === "success") return "Done";
+    if (item.status === "failed") return `Failed: ${item.error || 'error'}`;
+    return "Ready";
+  }
+
+  // Update a single item DOM node quickly without rebuilding the whole list
+  function updateItemUIState(item: any) {
+    const row = document.getElementById(`item-${item.id}`);
+    if (!row) return;
+
+    row.className = `queue-table-row ${item.status}`;
+    
+    // Update thumbnail if set
+    const img = row.querySelector(".col-preview img") as HTMLImageElement;
+    if (img && item.thumbnailUrl) {
+      img.src = item.thumbnailUrl;
+    } else if (!img && item.thumbnailUrl) {
+      const previewDiv = row.querySelector(".col-preview") as HTMLElement;
+      previewDiv.replaceChildren();
+      const newImg = document.createElement("img");
+      newImg.src = item.thumbnailUrl;
+      newImg.alt = "Thumbnail";
+      previewDiv.appendChild(newImg);
+    }
+
+    // Update converted details text in the Size column
+    const sizeCol = row.querySelector(".col-size") as HTMLElement;
+    if (sizeCol && item.convertedSize) {
+      sizeCol.replaceChildren();
+      
+      const sizeSpan = document.createElement("span");
+      sizeSpan.textContent = formatBytes(item.originalSize);
+      sizeCol.appendChild(sizeSpan);
+      
+      const arrowSpan = document.createElement("span");
+      arrowSpan.className = "details-arrow";
+      arrowSpan.textContent = " → ";
+      sizeCol.appendChild(arrowSpan);
+
+      const convSizeSpan = document.createElement("span");
+      convSizeSpan.className = "details-converted";
+      convSizeSpan.textContent = `${formatBytes(item.convertedSize)}`;
+      sizeCol.appendChild(convSizeSpan);
+    }
+
+    // Update progress bar width
+    const progressBar = row.querySelector(".item-progress-bar") as HTMLElement;
+    if (progressBar) {
+      progressBar.style.width = `${item.progress}%`;
+    }
+
+    // Update Status Chip
+    const chip = row.querySelector(".col-status .status-chip") as HTMLElement;
+    if (chip) {
+      chip.className = `status-chip ${item.status}`;
+      chip.textContent = getStatusLabel(item);
+    }
+
+    updateGlobalUI();
+  }
+
+  function updateGlobalUI() {
+    const total = queue.length;
+    const pending = queue.filter(i => i.status === "pending").length;
+    const converting = queue.filter(i => i.status === "converting").length;
+    const success = queue.filter(i => i.status === "success").length;
+    const failed = queue.filter(i => i.status === "failed").length;
+    const completed = success + failed;
+
+    // Calculate average progress of all items for a smooth global bar transition
+    const totalProgress = queue.reduce((sum, item) => sum + item.progress, 0);
+    const globalProgress = total > 0 ? Math.round(totalProgress / total) : 0;
+
+    // Toggle configuration disable state
+    qualitySlider.disabled = isConverting;
+    formatChips.forEach(chip => {
+      const htmlChip = chip as HTMLElement;
+      if (isConverting) {
+        htmlChip.setAttribute("disabled", "true");
+        htmlChip.style.opacity = "0.5";
+        htmlChip.style.pointerEvents = "none";
+      } else {
+        htmlChip.removeAttribute("disabled");
+        htmlChip.style.opacity = "1";
+        htmlChip.style.pointerEvents = "auto";
+      }
+    });
+
+    btnClear.disabled = isConverting || total === 0;
+    btnDownloadZip.disabled = !generatedZipUrl || isConverting;
+
+    // Update Global Progress Bar
+    globalProgressBar.style.width = `${globalProgress}%`;
+    globalProgressPercent.textContent = `${globalProgress}%`;
+
+    if (isConverting) {
+      btnConvert.classList.remove("btn-filled");
+      btnConvert.classList.add("btn-tonal");
+      btnConvert.querySelector(".material-symbols-outlined")!.textContent = "stop";
+      btnConvert.querySelector("span:not(.material-symbols-outlined)")!.textContent = "Stop Conversion";
+      btnConvert.disabled = false;
+      
+      summaryText.textContent = `Converting: ${completed}/${total} completed`;
+      globalStatusText.textContent = `Converting ${completed} of ${total} images...`;
+    } else {
+      btnConvert.classList.add("btn-filled");
+      btnConvert.classList.remove("btn-tonal");
+      btnConvert.querySelector(".material-symbols-outlined")!.textContent = "play_arrow";
+      btnConvert.querySelector("span:not(.material-symbols-outlined)")!.textContent = "Convert Images";
+      
+      // Disable convert button if no pending images left
+      btnConvert.disabled = pending === 0;
+
+      if (total === 0) {
+        summaryText.textContent = "No images loaded";
+        globalStatusText.textContent = "No images loaded";
+      } else if (success === total) {
+        summaryText.textContent = `Completed all ${total} images`;
+        globalStatusText.textContent = `Successfully completed all ${total} images!`;
+      } else if (completed > 0) {
+        summaryText.textContent = `Completed ${completed} of ${total} (${failed} failed)`;
+        globalStatusText.textContent = `Conversion run finished. ${success} succeeded, ${failed} failed.`;
+      } else {
+        summaryText.textContent = `${total} images loaded, ready to convert`;
+        globalStatusText.textContent = `${total} images ready. Click "Convert Images" in the sidebar.`;
+      }
+    }
   }
 
   async function startConversion() {
+    if (queue.length === 0) return;
+    
     isConverting = true;
     activeWorkers = 0;
-    updateGlobalUI();
+    
+    // Revoke previous ZIP URL when starting new conversion run
+    if (generatedZipUrl) {
+      URL.revokeObjectURL(generatedZipUrl);
+      generatedZipUrl = null;
+    }
+
+    // Reset failed/success items so they are re-processed
+    queue.forEach(item => {
+      if (item.status === "failed" || item.status === "success") {
+        item.status = "pending";
+        item.progress = 0;
+        item.error = null;
+        if (item.convertedUrl) URL.revokeObjectURL(item.convertedUrl);
+        item.convertedBlob = null;
+        item.convertedSize = null;
+      }
+    });
+
+    renderQueueList();
     processQueueNext();
+  }
+
+  function stopConversion() {
+    isConverting = false;
+    queue.forEach(item => {
+      if (item.status === "converting") {
+        item.status = "pending";
+        item.progress = 0;
+      }
+    });
+    renderQueueList();
   }
 
   function processQueueNext() {
     if (!isConverting) return;
 
-    const pendingItems = queue.filter((item) => item.status === "pending");
-
+    const pendingItems = queue.filter(item => item.status === "pending");
+    
     if (pendingItems.length === 0 && activeWorkers === 0) {
-      // Entire queue is complete
+      // Conversions done, generate zip!
       finalizeConversion();
       return;
     }
@@ -392,71 +692,59 @@
       nextItem.status = "converting";
       nextItem.progress = 5;
       activeWorkers++;
-
+      
       runImageConversion(nextItem).then(() => {
         activeWorkers--;
         processQueueNext();
       });
 
-      updateGlobalUI();
+      updateItemUIState(nextItem);
     }
   }
 
   async function runImageConversion(item: any) {
     const ext = getExtensionForMime(targetFormat);
-    const baseNameWithoutExt =
-      item.name.substring(0, item.name.lastIndexOf(".")) || item.name;
+    const baseNameWithoutExt = item.name.substring(0, item.name.lastIndexOf(".")) || item.name;
     item.convertedName = `${baseNameWithoutExt}.${ext}`;
 
     try {
       let sourceBlob = item.file;
-
+      
       // Step 1: Decode HEIC/HEIF if applicable
       if (item.isHeic) {
         item.progress = 20;
-        updateGlobalUI();
+        updateItemUIState(item);
 
         try {
-          // Dynamic import of heic-to to support modern HEIC/HEIF files (e.g. iPhone 13+)
           const heicToModule = await import("heic-to");
-          const heicTo =
-            heicToModule.heicTo || heicToModule.default || heicToModule;
+          const heicTo = heicToModule.heicTo || heicToModule.default || heicToModule;
 
           const convResult = await heicTo({
             blob: item.file,
-            type: (targetFormat === "image/webp"
-              ? "image/jpeg"
-              : targetFormat) as any, // WebP is handled in Step 2 via Canvas
-            quality: quality,
+            type: (targetFormat === "image/webp" ? "image/jpeg" : targetFormat) as any,
+            quality: quality
           });
 
           sourceBlob = convResult;
           item.progress = 60;
-          updateGlobalUI();
+          updateItemUIState(item);
         } catch (err) {
           console.error("HEIC decoding error:", err);
-          const errorMsg =
-            err && typeof err === "object" && "message" in err
-              ? String((err as any).message)
-              : "HEIC decoding failed";
+          const errorMsg = (err && typeof err === "object" && "message" in err) ? String((err as any).message) : "HEIC decoding failed";
           throw new Error(errorMsg);
         }
       }
 
       // Step 2: Convert Format / Adjust Quality using Canvas
       const sourceMime = sourceBlob.type;
-
+      
       if (sourceMime === targetFormat && !item.isHeic && quality === 1.0) {
         item.convertedBlob = sourceBlob;
       } else {
         item.progress = 75;
-        updateGlobalUI();
+        updateItemUIState(item);
 
-        const canvasBlob = await convertViaCanvas(
-          sourceBlob,
-          targetFormat,
-          quality,
-        );
+        const canvasBlob = await convertViaCanvas(sourceBlob, targetFormat, quality);
         item.convertedBlob = canvasBlob;
       }
 
@@ -468,45 +756,24 @@
       console.error(e);
       item.status = "failed";
       item.error = e.message || "Conversion failed";
-      item.progress = 100; // mark progress as filled so bar reaches end
+      item.progress = 0;
     }
 
-    updateGlobalUI();
-  }
-
-  // Update global progress bar and status text
-  function updateGlobalUI() {
-    const total = queue.length;
-    const success = queue.filter((i) => i.status === "success").length;
-    const failed = queue.filter((i) => i.status === "failed").length;
-    const completed = success + failed;
-
-    // Calculate average progress of all items for a smooth bar transition
-    const totalProgress = queue.reduce((sum, item) => sum + item.progress, 0);
-    const globalProgress = total > 0 ? Math.round(totalProgress / total) : 0;
-
-    globalProgressBar.style.width = `${globalProgress}%`;
-    globalProgressPercent.textContent = `${globalProgress}%`;
-    progressStatus.textContent = `Converting ${completed} of ${total} images...`;
+    updateItemUIState(item);
   }
 
   // Finalize conversion and generate Zip
   async function finalizeConversion() {
     isConverting = false;
-    progressStatus.textContent = "Packaging ZIP file...";
-
-    const successItems = queue.filter(
-      (item) => item.status === "success" && item.convertedBlob,
-    );
-    const failedItems = queue.filter((item) => item.status === "failed");
-    let packagingError = null;
+    globalStatusText.textContent = "Packaging ZIP file...";
+    
+    const successItems = queue.filter(item => item.status === "success" && item.convertedBlob);
 
     if (successItems.length > 0) {
       try {
         const zip = new JSZip();
-
-        successItems.forEach((item) => {
-          // Sanitize filename to avoid path manipulations
+        
+        successItems.forEach(item => {
           const cleanName = item.convertedName.replace(/[/\\]/g, "_");
           zip.file(cleanName, item.convertedBlob);
         });
@@ -524,8 +791,6 @@
         const seconds = String(now.getSeconds()).padStart(2, "0");
         currentZipName = `converted_${year}-${month}-${day}_${hours}-${minutes}-${seconds}.zip`;
 
-        btnDownloadZip.disabled = false;
-
         // Auto trigger download
         const a = document.createElement("a");
         a.href = generatedZipUrl;
@@ -535,87 +800,47 @@
         document.body.removeChild(a);
       } catch (err: any) {
         console.error("ZIP Generation error:", err);
-        packagingError =
-          err && typeof err === "object" && "message" in err
-            ? String(err.message)
-            : String(err);
+        const errorMsg = (err && typeof err === "object" && "message" in err) ? String(err.message) : String(err);
+        globalStatusText.textContent = `Packaging failed: ${errorMsg}`;
       }
     }
 
-    // Populate failure logs if any failed
-    failedLogList.replaceChildren();
-
-    if (failedItems.length > 0 || packagingError) {
-      if (packagingError) {
-        const li = document.createElement("li");
-        li.className = "failed-item";
-
-        const nameSpan = document.createElement("span");
-        nameSpan.className = "failed-item-name";
-        nameSpan.textContent = "Packaging failed: ";
-
-        const reasonSpan = document.createElement("span");
-        reasonSpan.className = "failed-item-reason";
-        reasonSpan.textContent = packagingError;
-
-        li.appendChild(nameSpan);
-        li.appendChild(reasonSpan);
-        failedLogList.appendChild(li);
-      }
-
-      failedItems.forEach((item) => {
-        const li = document.createElement("li");
-        li.className = "failed-item";
-
-        const nameSpan = document.createElement("span");
-        nameSpan.className = "failed-item-name";
-        nameSpan.textContent = item.name;
-
-        const reasonSpan = document.createElement("span");
-        reasonSpan.className = "failed-item-reason";
-        reasonSpan.textContent = ` (${item.error || "unknown error"})`;
-
-        li.appendChild(nameSpan);
-        li.appendChild(reasonSpan);
-        failedLogList.appendChild(li);
-      });
-      failedLogContainer.classList.remove("hidden");
-    } else {
-      failedLogContainer.classList.add("hidden");
-    }
-
-    // Switch to complete panel
-    panelProgress.classList.add("hidden");
-    panelComplete.classList.remove("hidden");
+    renderQueueList();
   }
 
   // Canvas API Conversion Helper
-  function convertViaCanvas(
+  // Implements wide color space preservation (Display-P3) to prevent desaturated or shifted color tones.
+  async function convertViaCanvas(
     blob: Blob,
     mimeType: string,
     qualityVal: number,
   ): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const url = URL.createObjectURL(blob);
+    try {
+      // Step A: Decode image without color space conversion to retain raw color profiles
+      const imageBitmap = await createImageBitmap(blob, { colorSpaceConversion: "none" });
 
-      img.onload = () => {
-        URL.revokeObjectURL(url);
+      const canvas = document.createElement("canvas");
+      canvas.width = imageBitmap.width;
+      canvas.height = imageBitmap.height;
 
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
+      // Step B: Set canvas to Display-P3 if supported to maintain wide-gamut vibrancy
+      let ctx: CanvasRenderingContext2D | null = null;
+      try {
+        ctx = canvas.getContext("2d", { colorSpace: "display-p3" }) as CanvasRenderingContext2D | null;
+      } catch (e) {
+        ctx = canvas.getContext("2d") as CanvasRenderingContext2D | null;
+      }
 
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          reject(new Error("Unable to create canvas context"));
-          return;
-        }
+      if (!ctx) {
+        throw new Error("Unable to create canvas context");
+      }
 
-        ctx.drawImage(img, 0, 0);
+      ctx.drawImage(imageBitmap, 0, 0);
 
+      return new Promise((resolve, reject) => {
         canvas.toBlob(
           (outBlob) => {
+            imageBitmap.close(); // clean up resources immediately
             if (outBlob) {
               resolve(outBlob);
             } else {
@@ -625,15 +850,67 @@
           mimeType,
           qualityVal,
         );
-      };
+      });
+    } catch (err) {
+      console.warn("createImageBitmap failed, falling back to standard Image loader:", err);
+      
+      // Fallback for older browsers or unsupported files
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(blob);
 
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error("Failed to load image file into canvas"));
-      };
+        img.onload = () => {
+          URL.revokeObjectURL(url);
 
-      img.src = url;
-    });
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+
+          let ctx: CanvasRenderingContext2D | null = null;
+          try {
+            ctx = canvas.getContext("2d", { colorSpace: "display-p3" }) as CanvasRenderingContext2D | null;
+          } catch (e) {
+            ctx = canvas.getContext("2d") as CanvasRenderingContext2D | null;
+          }
+          
+          if (!ctx) {
+            reject(new Error("Unable to create canvas context"));
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0);
+
+          canvas.toBlob(
+            (outBlob) => {
+              if (outBlob) {
+                resolve(outBlob);
+              } else {
+                reject(new Error("Canvas export to blob failed"));
+              }
+            },
+            mimeType,
+            qualityVal,
+          );
+        };
+
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error("Failed to load image file into canvas"));
+        };
+
+        img.src = url;
+      });
+    }
+  }
+
+  // File size formatter
+  function formatBytes(bytes: number, decimals = 2) {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
   }
 
   // Utility to map mime back to simple extensions
@@ -645,8 +922,8 @@
   }
 </script>
 
-<style>
-  /* Material Design 3 Minimal Layout */
+<style is:global>
+  /* Material Design 3 Two-Column Dashboard Layout */
 
   .converter-app {
     display: flex;
@@ -712,68 +989,119 @@
   /* Main Area */
   .app-content {
     flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px 16px;
-  }
-
-  .converter-container {
+    padding: 32px;
+    max-width: 1400px;
     width: 100%;
-    max-width: 600px;
+    margin: 0 auto;
   }
 
-  /* Material Card */
+  .dashboard-layout {
+    display: flex;
+    gap: 32px;
+    align-items: stretch; /* makes sidebar match main panel height if possible */
+  }
+
+  @media (max-width: 900px) {
+    .dashboard-layout {
+      flex-direction: column;
+    }
+    .sidebar {
+      width: 100% !important;
+    }
+  }
+
+  /* Sidebar Controls */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 320px;
+    flex-shrink: 0;
+  }
+
+  /* Material Cards */
   .card {
     background-color: var(--md-sys-color-surface-container-low);
-    border-radius: var(--md-shape-corner-extra-large);
-    padding: 32px;
+    border-radius: var(--md-shape-corner-large);
+    padding: 24px;
     border: 1px solid var(--md-sys-color-surface-variant);
-    box-shadow: var(--md-elevation-2);
+    box-shadow: var(--md-elevation-1);
     transition:
       box-shadow 0.2s,
       background-color 0.3s;
   }
 
-  .card-title {
-    font-size: 24px;
-    font-weight: 400;
+  .card:hover {
+    box-shadow: var(--md-elevation-2);
+  }
+
+  .sidebar-card-title {
+    font-size: 16px;
+    font-weight: 500;
     margin-top: 0;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     color: var(--md-sys-color-on-surface);
+    border-bottom: 1px solid var(--md-sys-color-surface-variant);
+    padding-bottom: 8px;
+  }
+
+  /* Upload Trigger Card */
+  .upload-card {
+    border: 2px dashed var(--md-sys-color-outline-variant);
+    background-color: transparent;
+    cursor: pointer;
     text-align: center;
+    transition: all 0.2s;
+  }
+
+  .upload-card:hover, .upload-card.dragover {
+    border-color: var(--md-sys-color-primary);
+    background-color: rgba(103, 80, 164, 0.04);
+  }
+
+  .upload-card-icon {
+    font-size: 32px;
+    color: var(--md-sys-color-primary);
+    margin-bottom: 8px;
+  }
+
+  .upload-card-title {
+    font-size: 15px;
+    font-weight: 500;
+    margin: 0 0 4px 0;
+    color: var(--md-sys-color-on-surface);
+  }
+
+  .upload-card-subtitle {
+    font-size: 12px;
+    margin: 0;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .hidden-input {
+    display: none;
   }
 
   /* Settings Controls */
-  .settings-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    margin-bottom: 32px;
-  }
-
-  @media (max-width: 480px) {
-    .settings-grid {
-      grid-template-columns: 1fr;
-      gap: 16px;
-    }
-  }
-
   .setting-group {
-    display: flex;
-    flex-direction: column;
+    margin-bottom: 20px;
+  }
+
+  .setting-group:last-child {
+    margin-bottom: 0;
   }
 
   .setting-label {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     color: var(--md-sys-color-on-surface-variant);
+    display: block;
   }
 
   .format-chips {
     display: flex;
-    gap: 8px;
+    gap: 6px;
   }
 
   .format-chip {
@@ -781,21 +1109,21 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 10px;
+    gap: 4px;
+    padding: 8px 4px;
     border-radius: var(--md-shape-corner-medium);
     border: 1px solid var(--md-sys-color-outline);
     background: transparent;
     color: var(--md-sys-color-on-surface);
     cursor: pointer;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     transition: all 0.2s;
   }
 
   .format-chip .chip-icon {
-    font-size: 16px;
+    font-size: 14px;
     display: none;
   }
 
@@ -820,7 +1148,7 @@
   }
 
   .slider-value {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--md-sys-color-primary);
   }
@@ -833,14 +1161,14 @@
     border-radius: 2px;
     background: var(--md-sys-color-surface-variant);
     outline: none;
-    margin-top: 10px;
+    margin-top: 8px;
   }
 
   .slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: var(--md-sys-color-primary);
     cursor: pointer;
@@ -848,8 +1176,8 @@
   }
 
   .slider::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border: none;
     border-radius: 50%;
     background: var(--md-sys-color-primary);
@@ -857,222 +1185,32 @@
     box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.3);
   }
 
-  /* Dropzone */
-  .dropzone-area {
-    border: 2px dashed var(--md-sys-color-outline-variant);
-    border-radius: var(--md-shape-corner-large);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-align: center;
-    background-color: transparent;
-    padding: 40px 20px;
-  }
-
-  .dropzone-area:hover,
-  .dropzone-area.dragover {
-    border-color: var(--md-sys-color-primary);
-    background-color: rgba(103, 80, 164, 0.04);
-  }
-
-  .hidden-input {
-    display: none;
-  }
-
-  .dropzone-content {
+  /* Actions Card */
+  .actions-card {
     display: flex;
     flex-direction: column;
-    align-items: center;
-  }
-
-  .dropzone-icon-container {
-    width: 64px;
-    height: 64px;
-    border-radius: var(--md-shape-corner-full);
-    background-color: var(--md-sys-color-primary-container);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 16px;
-  }
-
-  .dropzone-icon {
-    font-size: 32px;
-    color: var(--md-sys-color-on-primary-container);
-  }
-
-  .dropzone-title {
-    font-size: 18px;
-    font-weight: 500;
-    margin: 0 0 6px 0;
-    color: var(--md-sys-color-on-surface);
-  }
-
-  .dropzone-subtitle {
-    font-size: 14px;
-    margin: 0 0 18px 0;
-    color: var(--md-sys-color-on-surface-variant);
-  }
-
-  .dropzone-supported {
-    font-size: 12px;
-    background-color: var(--md-sys-color-surface-variant);
-    color: var(--md-sys-color-on-surface-variant);
-    padding: 6px 12px;
-    border-radius: var(--md-shape-corner-small);
-  }
-
-  /* State 2: Progress Panel */
-  .progress-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 24px 0;
-  }
-
-  .spinner-container {
-    margin-bottom: 24px;
-  }
-
-  .m3-spinner {
-    width: 48px;
-    height: 48px;
-    border: 4px solid var(--md-sys-color-surface-variant);
-    border-top: 4px solid var(--md-sys-color-primary);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
-  }
-
-  .progress-title {
-    font-size: 20px;
-    font-weight: 500;
-    margin: 0 0 8px 0;
-    color: var(--md-sys-color-on-surface);
-  }
-
-  .progress-status-text {
-    font-size: 14px;
-    margin: 0 0 24px 0;
-    color: var(--md-sys-color-on-surface-variant);
-  }
-
-  .global-progress-container {
-    height: 6px;
-    width: 100%;
-    background-color: var(--md-sys-color-surface-variant);
-    border-radius: 3px;
-    overflow: hidden;
-    margin-bottom: 8px;
-  }
-
-  .global-progress-bar {
-    height: 100%;
-    background-color: var(--md-sys-color-primary);
-    transition: width 0.2s ease;
-  }
-
-  .progress-percent {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--md-sys-color-primary);
-  }
-
-  /* State 3: Complete Panel */
-  .complete-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 16px 0;
-  }
-
-  .success-icon-container {
-    width: 72px;
-    height: 72px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 20px;
-  }
-
-  .success-icon {
-    font-size: 72px;
-    color: var(--md-sys-color-success);
-  }
-
-  .complete-title {
-    font-size: 22px;
-    font-weight: 500;
-    margin: 0 0 8px 0;
-    color: var(--md-sys-color-on-surface);
-  }
-
-  .complete-status-text {
-    font-size: 15px;
-    margin: 0 0 24px 0;
-    color: var(--md-sys-color-on-surface-variant);
-    max-width: 400px;
-    line-height: 1.5;
-  }
-
-  /* Failed Log Container */
-  .failed-log-container {
-    width: 100%;
-    background-color: var(--md-sys-color-error-container);
-    color: var(--md-sys-color-on-error-container);
+    gap: 12px;
     padding: 16px;
-    border-radius: var(--md-shape-corner-medium);
-    margin-bottom: 24px;
-    text-align: left;
   }
 
-  .failed-log-title {
-    font-size: 14px;
-    font-weight: 600;
-    margin-top: 0;
-    margin-bottom: 8px;
-  }
-
-  .failed-log-list {
-    margin: 0;
-    padding-left: 20px;
-    font-size: 13px;
-  }
-
-  .failed-item {
-    margin-bottom: 4px;
-  }
-
-  .failed-item-name {
-    font-weight: 500;
-  }
-
-  .failed-item-reason {
-    opacity: 0.8;
-  }
-
-  /* Restart Button */
+  /* Buttons */
   .btn {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 12px 24px;
+    padding: 12px 16px;
     border-radius: var(--md-shape-corner-full);
     font-family: inherit;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     border: none;
     transition: all 0.2s;
+  }
+
+  .action-btn {
+    width: 100%;
   }
 
   .btn-icon {
@@ -1090,29 +1228,11 @@
     background-color: #553c90;
   }
 
-  .complete-actions {
-    display: flex;
-    gap: 16px;
-    margin-top: 24px;
-    width: 100%;
-    justify-content: center;
-  }
-
-  .complete-actions button {
-    flex: 1;
-    max-width: 200px;
-  }
-
-  @media (max-width: 480px) {
-    .complete-actions {
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-    }
-    .complete-actions button {
-      max-width: 100%;
-      width: 100%;
-    }
+  .btn-filled:disabled {
+    background-color: rgba(29, 27, 32, 0.12);
+    color: rgba(29, 27, 32, 0.38);
+    box-shadow: none;
+    cursor: not-allowed;
   }
 
   .btn-tonal {
@@ -1122,6 +1242,301 @@
 
   .btn-tonal:hover {
     background-color: var(--md-sys-color-surface-variant);
+  }
+
+  .btn-tonal:disabled {
+    background-color: rgba(29, 27, 32, 0.12);
+    color: rgba(29, 27, 32, 0.38);
+    cursor: not-allowed;
+  }
+
+  .btn-text {
+    background: transparent;
+    color: var(--md-sys-color-primary);
+  }
+
+  .btn-text:hover {
+    background-color: rgba(103, 80, 164, 0.08);
+  }
+
+  .btn-text:disabled {
+    color: rgba(29, 27, 32, 0.38);
+    cursor: not-allowed;
+    background: transparent;
+  }
+
+  /* Right Panel Main */
+  .main-panel {
+    flex: 1;
+    min-width: 0;
+    background-color: var(--md-sys-color-surface-container-low);
+    border-radius: var(--md-shape-corner-extra-large);
+    padding: 32px;
+    border: 1px solid var(--md-sys-color-surface-variant);
+    display: flex;
+    flex-direction: column;
+    min-height: 520px;
+    box-shadow: var(--md-elevation-1);
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--md-sys-color-surface-variant);
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+  }
+
+  .panel-title {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0;
+    color: var(--md-sys-color-on-surface);
+  }
+
+  .summary-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--md-sys-color-primary);
+  }
+
+  /* Empty State Placeholder */
+  .queue-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--md-sys-color-on-surface-variant);
+    text-align: center;
+    padding: 40px;
+  }
+
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+  }
+
+  .empty-title {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0 0 4px 0;
+  }
+
+  .empty-subtitle {
+    font-size: 13px;
+    margin: 0;
+    max-width: 320px;
+    line-height: 1.4;
+  }
+
+  /* Queue Table Layout */
+  .queue-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 100%;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+
+  .queue-table-header {
+    display: grid;
+    grid-template-columns: 60px 2fr 1.2fr 1.5fr 1.2fr 50px;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--md-sys-color-surface-variant);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .queue-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 480px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .queue-table-row {
+    display: grid;
+    grid-template-columns: 60px 2fr 1.2fr 1.5fr 1.2fr 50px;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    font-size: 13px;
+    background-color: var(--md-sys-color-surface);
+    transition: background-color 0.2s;
+  }
+
+  .queue-table-row:hover {
+    background-color: var(--md-sys-color-surface-container-low);
+  }
+
+  /* Row Columns Styling */
+  .col-preview {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--md-shape-corner-small);
+    background-color: var(--md-sys-color-surface-container);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .col-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .preview-icon {
+    font-size: 22px;
+    color: var(--md-sys-color-on-surface-variant);
+    opacity: 0.7;
+  }
+
+  .col-name {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--md-sys-color-on-surface);
+    padding-right: 8px;
+  }
+
+  .col-size {
+    color: var(--md-sys-color-on-surface-variant);
+    white-space: nowrap;
+  }
+
+  .details-arrow {
+    color: var(--md-sys-color-outline);
+    font-weight: bold;
+    padding: 0 2px;
+  }
+
+  .details-converted {
+    color: var(--md-sys-color-success);
+    font-weight: 500;
+  }
+
+  .col-progress {
+    display: flex;
+    align-items: center;
+  }
+
+  .item-progress-bar-container {
+    height: 4px;
+    width: 100%;
+    background-color: var(--md-sys-color-surface-variant);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .item-progress-bar {
+    height: 100%;
+    background-color: var(--md-sys-color-primary);
+    width: 0%;
+    transition: width 0.2s ease;
+  }
+
+  .col-status {
+    display: flex;
+    align-items: center;
+  }
+
+  .col-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .item-remove-btn {
+    width: 32px;
+    height: 32px;
+    color: var(--md-sys-color-error);
+  }
+  
+  .item-remove-btn:hover {
+    background-color: rgba(186, 26, 26, 0.08) !important;
+    color: var(--md-sys-color-error) !important;
+  }
+
+  /* Status Chips */
+  .status-chip {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: var(--md-shape-corner-full);
+    text-transform: capitalize;
+    white-space: nowrap;
+    display: inline-block;
+  }
+
+  .status-chip.pending {
+    background-color: transparent;
+    color: var(--md-sys-color-outline);
+    border: 1px solid var(--md-sys-color-outline);
+  }
+
+  .status-chip.converting {
+    background-color: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+  }
+
+  .status-chip.success {
+    background-color: var(--md-sys-color-success-container);
+    color: var(--md-sys-color-on-success-container);
+  }
+
+  .status-chip.failed {
+    background-color: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Bottom Global Progress Footer */
+  .queue-footer {
+    border-top: 1px solid var(--md-sys-color-surface-variant);
+    padding-top: 20px;
+    margin-top: auto;
+  }
+
+  .footer-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--md-sys-color-on-surface);
+  }
+
+  .global-progress-container {
+    height: 6px;
+    width: 100%;
+    background-color: var(--md-sys-color-surface-variant);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .global-progress-bar {
+    height: 100%;
+    background-color: var(--md-sys-color-primary);
+    width: 0%;
+    transition: width 0.3s ease;
   }
 
   .hidden {
