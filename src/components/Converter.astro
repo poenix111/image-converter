@@ -8,7 +8,18 @@
   <!-- Top App Bar -->
   <header class="app-bar">
     <div class="app-bar-content">
-      <span class="material-symbols-outlined logo-icon">image</span>
+      <svg class="logo-svg" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="var(--md-sys-color-primary)" />
+            <stop offset="100%" stop-color="var(--md-sys-color-tertiary)" />
+          </linearGradient>
+        </defs>
+        <rect x="2" y="2" width="28" height="28" rx="8" class="logo-bg" fill="var(--md-sys-color-primary-container)" fill-opacity="0.15" />
+        <rect x="6" y="6" width="16" height="16" rx="4" stroke="var(--md-sys-color-outline)" stroke-width="1.5" stroke-dasharray="3 2" />
+        <rect x="11" y="11" width="15" height="15" rx="4" stroke="url(#logo-grad)" stroke-width="2" fill="url(#logo-grad)" fill-opacity="0.1" />
+        <path d="M12 20 L20 12 M20 12 H15 M20 12 V17" stroke="url(#logo-grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
       <h1 class="app-title">_Converter</h1>
     </div>
     <div class="app-bar-actions">
@@ -1042,9 +1053,10 @@
     gap: 12px;
   }
 
-  .logo-icon {
-    font-size: 28px;
-    color: var(--md-sys-color-primary);
+  .logo-svg {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
   }
 
   .app-title {
