@@ -126,6 +126,11 @@
             <span class="material-symbols-outlined btn-icon">delete_sweep</span>
             <span>Clear Queue</span>
           </button>
+
+          <div class="helper-text-container">
+            <span class="material-symbols-outlined helper-icon">verified_user</span>
+            <span class="helper-text">100% private • No login wall</span>
+          </div>
         </div>
       </aside>
 
@@ -1267,6 +1272,25 @@
     flex-direction: column;
     gap: 12px;
     padding: 16px;
+  }
+
+  .helper-text-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding-top: 12px;
+    border-top: 1px solid var(--md-sys-color-surface-variant);
+    color: var(--md-sys-color-outline);
+  }
+
+  .helper-icon {
+    font-size: 16px;
+  }
+
+  .helper-text {
+    font-size: 11px;
+    font-weight: 500;
   }
 
   /* Buttons */

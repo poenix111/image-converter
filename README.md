@@ -7,15 +7,8 @@ A high-performance, client-side batch image converter built with **Astro** and s
 ## ✨ Features
 
 - **🔒 100% Client-Side:** All decoding, conversion, and compression happen directly in the browser. Your photos never leave your device.
+- **🚪 No Login Wall:** Instant access with no sign-ups, accounts, subscription limits, or log-in popups.
 - **🍏 HEIC & HEIF Support:** Converts modern high-efficiency formats from Apple cameras on-the-fly to standard formats.
-- **🎨 Color Gamut Preservation:** Uses `createImageBitmap` with `colorSpaceConversion: "none"` and wide `display-p3` canvas context buffers to prevent desaturated, dull, or shifted color tones.
-- **📊 Tabular Progression Queue:** An interactive side-by-side dashboard structure:
-  - **Sidebar:** Controls target format (JPEG, WEBP, PNG), quality sliders, manual launch button, dynamic download controls, and clear queue button.
-  - **Progression Grid:** Detailed rows and columns displaying image preview thumbnails, filenames, size shifts (e.g. `2.35 MB → 3.05 MB`), individual file-level conversion progress bars, and status badges.
-- **⏱️ Global Status Footer:** Real-time summary stats (e.g. `Converting 3 of 10 images...`) coupled with a full-width global progress bar.
-- **📦 Dynamically Chronological ZIP Archiving:** Assembles all converted files in the background and automatically triggers a dynamic timestamped ZIP archive download (e.g., `converted_2026-07-18_14-04-14.zip`).
-- **🌓 Material Design 3 Styling:** Premium dark mode by default with light/dark toggling support, smooth micro-animations, and Outfit typography.
-
 ---
 
 ## 🛠️ Technology Stack
