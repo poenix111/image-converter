@@ -1,32 +1,70 @@
+---
+import { SEO } from "astro-seo";
+
+interface Props {
+	title?: string;
+	description?: string;
+	keywords?: string;
+}
+
+const defaultDescription = "Free, 100% client-side batch image converter with no login wall. Convert HEIC, PNG, WEBP, and JPEG directly in your browser with absolute privacy and full Display-P3 color gamut preservation.";
+const defaultOgDescription = "Convert your HEIC, PNG, WEBP, and JPEG images in bulk directly in your browser with zero server uploads and 100% privacy.";
+
+const {
+	title = "_Converter — Client-Side Batch Image Converter",
+	description = defaultDescription,
+	keywords = "image converter, client side converter, HEIC to JPG, WEBP converter, batch image converter, display-p3 color space, privacy image converter, poenix111",
+} = Astro.props;
+
+const ogDescription = description === defaultDescription ? defaultOgDescription : description;
+---
+
 <!doctype html>
 <html lang="en">
 	<head>
+		<!-- Google tag (gtag.js) -->
+		<script async src="https://www.googletagmanager.com/gtag/js?id=G-4GETSZZYV3" is:inline></script>
+		<script is:inline>
+			window.dataLayer = window.dataLayer || [];
+			function gtag(){dataLayer.push(arguments);}
+			gtag('js', new Date());
+
+			gtag('config', 'G-4GETSZZYV3');
+		</script>
+
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="generator" content={Astro.generator} />
-		<title>_Converter — Client-Side Batch Image Converter</title>
-		
-		<!-- SEO Meta Tags -->
-		<meta name="description" content="Free, 100% client-side batch image converter with no login wall. Convert HEIC, PNG, WEBP, and JPEG directly in your browser with absolute privacy and full Display-P3 color gamut preservation." />
-		<meta name="keywords" content="image converter, client side converter, HEIC to JPG, WEBP converter, batch image converter, display-p3 color space, privacy image converter, poenix111" />
-		<meta name="author" content="poenix111" />
-		<meta name="robots" content="index, follow" />
-		
-		<!-- Open Graph / Facebook -->
-		<meta property="og:type" content="website" />
-		<meta property="og:title" content="_Converter — Client-Side Batch Image Converter" />
-		<meta property="og:description" content="Convert your HEIC, PNG, WEBP, and JPEG images in bulk directly in your browser with zero server uploads and 100% privacy." />
-		<meta property="og:site_name" content="_Converter" />
-		<meta property="og:url" content={Astro.url.href} />
-		
-		<!-- Twitter -->
-		<meta property="twitter:card" content="summary_large_image" />
-		<meta property="twitter:title" content="_Converter — Client-Side Batch Image Converter" />
-		<meta property="twitter:description" content="Convert your HEIC, PNG, WEBP, and JPEG images in bulk directly in your browser with zero server uploads and 100% privacy." />
-		
-		<!-- Canonical URL -->
-		<link rel="canonical" href={Astro.url.href} />
+
+		<SEO
+			title={title}
+			description={description}
+			canonical={Astro.url.href}
+			openGraph={{
+				basic: {
+					title: title,
+					type: "website",
+					image: "/favicon.svg",
+				},
+				optional: {
+					description: ogDescription,
+					siteName: "_Converter",
+				},
+			}}
+			twitter={{
+				card: "summary_large_image",
+				title: title,
+				description: ogDescription,
+			}}
+			extend={{
+				meta: [
+					{ name: "keywords", content: keywords },
+					{ name: "author", content: "poenix111" },
+					{ name: "robots", content: "index, follow" },
+				],
+			}}
+		/>
 
 		<!-- Google Fonts & Icons -->
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
